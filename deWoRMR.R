@@ -61,7 +61,7 @@ while(i <= length(links_to_visit)) {
       } else {
         status = html_text(html_nodes(read_url, '#Status span'))
         
-        if(status %in% c('accepted', 'temporary name')) {
+        if(!status %in% c('accepted', 'temporary name')) {
           correct_species = html_text(html_nodes(read_url, 
                                                  '#AcceptedName .leave_image_space'))
         } else {
@@ -185,8 +185,11 @@ target_clade = paste0(this_taxonomy[which(1:length(this_taxonomy) > target_clade
                                             1:length(this_taxonomy) < target_clade[2])], 
                       collapse = ' ')
 
+final_taxonomy = final_taxonomy[which(final_taxonomy[which(colnames(final_taxonomy) == 
+                                                             target_rank)] == 
+                                        target_clade),]
+
 final_taxonomy = final_taxonomy %>% 
-  filter(!!as.symbol(target_rank) == target_clade) %>% 
   rename_at(vars(colnames(df)), ~ gsub('^.|.$', '', colnames(df)))
 
 #remove columns that are constant (i.e., taxonomic categories above that of
