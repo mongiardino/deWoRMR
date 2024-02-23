@@ -196,7 +196,7 @@ final_taxonomy = final_taxonomy %>%
 #the clade of interest)
 constant = names(which(apply(final_taxonomy, 2, 
                              function(x) length(unique(x))) == 1))
-final_taxonomy = final_taxonomy %>% select(-one_of(constant))
+final_taxonomy = final_taxonomy[, !colnames(final_taxonomy) %in% constant]
 
 #attempt at ordering columns following their position in the taxonomic hierarchy
 to_sort = colnames(final_taxonomy)
