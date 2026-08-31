@@ -4,7 +4,8 @@
 #ONLY INPUT REQUIRED: URL to the page of the target clade (starting point)
 #In this case Echinoidea, but search for your clade of interest in WoRMS and
 #paste the correct link below
-starting_url = 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=123082'
+rm(list=ls())
+starting_url = 'https://www.marinespecies.org/aphia.php?p=taxdetails&id=106039'
 
 #Install (optionally) and load required packages
 packages <- c('rvest','stringr','dplyr')
@@ -43,34 +44,55 @@ while(i <= length(links_to_visit)) {
     
     #what kind of taxon are we visiting?
     taxon_level = str_squish(gsub("[\r\n]", "", 
-                                  html_text(html_nodes(read_url, 
+                                  html_text(html_elements(read_url, 
                                                        '#Rank .leave_image_space'))))
+    
+    if(length(taxon_level) == 0) {
+      taxon_level = str_squish(gsub("[\r\n]", "", 
+                                    html_text(html_elements(read_url, 
+                                                            '#Rank'))))
+    }
     
     #if it is not a fossil (sometimes these show up inconsistently)
     if(length(taxon_level) > 0) {
       #if it is not a species, check to see if it has direct children and add
       #these to the list of links we need to visit
       if(taxon_level != 'Species') {
-        if(length(html_attr(html_nodes(read_url, '#ChildTaxa a'), 'href')) > 0) {
-          to_add = html_attr(html_nodes(read_url, '#ChildTaxa a'), 'href')
+        if(length(html_attr(html_elements(read_url, '#ChildTaxa a'), 'href')) > 0) {
+          to_add = html_attr(html_elements(read_url, '#ChildTaxa a'), 'href')
           links_to_visit = c(links_to_visit, 
                              sapply(strsplit(to_add, 'id='), '[', 2))
         }
         
         #if it is a species, download its information
       } else {
-        status = html_text(html_nodes(read_url, '#Status span'))
+        status = html_text(html_elements(read_url, '#Status span'))
+        
+        if(length(status) == 0) {
+          status = html_text(html_elements(read_url, '#Status'))
+        }
         
         if(!status %in% c('accepted', 'temporary name')) {
-          correct_species = html_text(html_nodes(read_url, 
+          correct_species = html_text(html_elements(read_url, 
                                                  '#AcceptedName .leave_image_space'))
+          
+          if(length(correct_species) == 0) {
+            correct_species = html_text(html_nodes(read_url, 
+                                                   '#AcceptedName'))
+          }
         } else {
           correct_species = 'NA'
         }
         
         #get the taxonomy and clean
-        this_taxonomy = html_text(html_nodes(read_url, 
+        this_taxonomy = html_text(html_elements(read_url, 
                                              '#Classification .leave_image_space'))
+        
+        if(length(this_taxonomy) == 0) {
+          this_taxonomy = html_text(html_elements(read_url, 
+                                                  '#Classification'))
+        }
+        
         this_taxonomy = str_squish(gsub("[\r\n]", "", this_taxonomy))
         taxon_info = paste(links_to_visit[i], this_taxonomy, 
                            status, correct_species, sep = ', ')
@@ -82,7 +104,7 @@ while(i <= length(links_to_visit)) {
       }
     }
   }
-
+  
   #no matter what you did, send current link from those waiting to be visited
   #to those already visited
   already_visited = c(already_visited, links_to_visit[i])
@@ -130,13 +152,18 @@ df = df %>% rename_at(vars(colnames(df)), ~ hierarchy) %>%
 for(i in 1:length(taxonomy)) {
   a = unlist(strsplit(taxonomy[i], ' '))
   matches = which(a %in% colnames(df))
-  for(j in length(matches):1) {
-    if(j != 1) {
-      to_use = paste(a[(matches[j-1]+1):(matches[j]-1)], collapse = ' ')
-    } else {
-      to_use = paste(a[1:(matches[j]-1)], collapse = ' ')
+  
+  if(length(matches != 0)) {
+    for(j in length(matches):1) {
+      if(j != 1) {
+        to_use = paste(a[(matches[j-1]+1):(matches[j]-1)], collapse = ' ')
+      } else {
+        to_use = paste(a[1:(matches[j]-1)], collapse = ' ')
+      }
+      df[i, which(colnames(df) == a[matches[j]])] = to_use
     }
-    df[i, which(colnames(df) == a[matches[j]])] = to_use
+  } else {
+    cat("Some species will be missing to due improper formatting.\n")
   }
 }
 
@@ -175,6 +202,10 @@ final_taxonomy = df %>% mutate(aphiaID = aphiaID, Status = status,
 read_url = read_html(starting_url)
 this_taxonomy = html_text(html_nodes(read_url, 
                                      '#Classification .leave_image_space'))
+if(length(this_taxonomy) == 0) {
+  this_taxonomy = html_text(html_nodes(read_url, 
+                                       '#Classification'))
+}
 this_taxonomy = str_squish(gsub("[\r\n]", "", this_taxonomy))
 this_taxonomy = unlist(strsplit(this_taxonomy, ' '))
 
